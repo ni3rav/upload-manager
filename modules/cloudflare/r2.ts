@@ -154,3 +154,50 @@ export async function putObject({
     error: null,
   };
 }
+
+export async function deleteObject({
+  accountId,
+  bucketName,
+  key,
+  accessToken,
+}: {
+  accountId: string;
+  bucketName: string;
+  key: string;
+  accessToken: string;
+}): Promise<{ error: string | null }> {
+  const { data: response, error } = await tryCatch(
+    fetch(objectUrl(accountId, bucketName, key), {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }),
+  );
+
+  if (error) {
+    return { error: "Could not reach Cloudflare R2" };
+  }
+
+  if (response.status === 404) {
+    return { error: null };
+  }
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      return {
+        error: "Cloudflare access token is missing required R2 permissions",
+      };
+    }
+
+    const { data: payload } = await tryCatch(
+      response.json() as Promise<{ errors?: Array<{ message?: string }> }>,
+    );
+    const message =
+      payload?.errors?.[0]?.message ??
+      `Cloudflare R2 delete failed with status ${response.status}`;
+    return { error: message };
+  }
+
+  return { error: null };
+}

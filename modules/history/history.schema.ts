@@ -39,6 +39,12 @@ export const historyListResponseSchema = z.object({
 
 export type HistoryListResponse = z.infer<typeof historyListResponseSchema>;
 
+export const renameHistoryBatchSchema = z.object({
+  name: batchNameSchema,
+});
+
+export type RenameHistoryBatchInput = z.infer<typeof renameHistoryBatchSchema>;
+
 export function buildCopyPayload(urls: string[]): string {
   if (urls.length === 1) {
     return urls[0];
