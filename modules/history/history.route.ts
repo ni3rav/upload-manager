@@ -1,14 +1,31 @@
-import { Elysia } from "elysia";
+import { Elysia, t } from "elysia";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { uploadBatch, uploadItem } from "@/db/schema";
+import { getCloudflareAccessToken } from "@/lib/cloudflare-token";
 import { getUserTarget } from "@/lib/target";
 import { requireAuth } from "@/middleware/auth";
 import { tryCatch } from "@/lib/try-catch";
-import { buildCopyPayload, createHistoryBatchSchema } from "./history.schema";
+import { deleteObject } from "@/modules/cloudflare/r2";
+import {
+  buildCopyPayload,
+  createHistoryBatchSchema,
+  renameHistoryBatchSchema,
+} from "./history.schema";
 
 function createId() {
   return crypto.randomUUID();
+}
+
+async function findOwnedBatch(userId: string, batchId: string) {
+  return db.query.uploadBatch.findFirst({
+    where: and(eq(uploadBatch.id, batchId), eq(uploadBatch.userId, userId)),
+    with: {
+      items: {
+        orderBy: (items, { asc }) => [asc(items.sortOrder)],
+      },
+    },
+  });
 }
 
 export const historyRoutes = new Elysia({ prefix: "/history" })
@@ -112,4 +129,123 @@ export const historyRoutes = new Elysia({ prefix: "/history" })
         items,
       },
     };
-  });
+  })
+  .patch(
+    "/:id",
+    async ({ user, params, body, status }) => {
+      const parsed = renameHistoryBatchSchema.safeParse(body);
+      if (!parsed.success) {
+        return status(400, {
+          error: parsed.error.issues[0]?.message ?? "Give this upload a name",
+        });
+      }
+
+      const batch = await findOwnedBatch(user.id, params.id);
+      if (!batch) {
+        return status(404, { error: "Upload history not found" });
+      }
+
+      const { error } = await tryCatch(
+        db
+          .update(uploadBatch)
+          .set({ name: parsed.data.name })
+          .where(
+            and(eq(uploadBatch.id, batch.id), eq(uploadBatch.userId, user.id)),
+          ),
+      );
+
+      if (error) {
+        return status(500, { error: "Failed to rename upload history" });
+      }
+
+      const urls = batch.items.map((item) => item.publicUrl);
+
+      return {
+        batch: {
+          id: batch.id,
+          name: parsed.data.name,
+          createdAt: batch.createdAt.toISOString(),
+          itemCount: batch.items.length,
+          copyPayload: buildCopyPayload(urls),
+          items: batch.items.map((item) => ({
+            key: item.objectKey,
+            publicUrl: item.publicUrl,
+          })),
+        },
+      };
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      body: t.Object({
+        name: t.String(),
+      }),
+    },
+  )
+  .delete(
+    "/:id",
+    async ({ user, params, request, status }) => {
+      const batch = await findOwnedBatch(user.id, params.id);
+      if (!batch) {
+        return status(404, { error: "Upload history not found" });
+      }
+
+      const { data: accessToken } = await getCloudflareAccessToken(
+        request.headers,
+      );
+      if (!accessToken) {
+        return status(401, {
+          error:
+            "Cloudflare is not connected. Sign in with Cloudflare to delete uploads.",
+        });
+      }
+
+      const failedKeys: string[] = [];
+
+      for (const item of batch.items) {
+        const { error } = await deleteObject({
+          accountId: batch.accountId,
+          bucketName: batch.bucketName,
+          key: item.objectKey,
+          accessToken,
+        });
+
+        if (error) {
+          failedKeys.push(item.objectKey);
+        }
+      }
+
+      if (failedKeys.length > 0) {
+        return status(502, {
+          error:
+            failedKeys.length === 1
+              ? `Could not delete ${failedKeys[0]} from R2. History was not removed.`
+              : `Could not delete ${failedKeys.length} files from R2. History was not removed.`,
+          failedKeys,
+        });
+      }
+
+      const { error } = await tryCatch(
+        db
+          .delete(uploadBatch)
+          .where(
+            and(eq(uploadBatch.id, batch.id), eq(uploadBatch.userId, user.id)),
+          ),
+      );
+
+      if (error) {
+        return status(500, {
+          error:
+            "Files were deleted from R2, but history could not be cleared. Refresh and try again.",
+        });
+      }
+
+      return { deleted: true, id: batch.id };
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+    },
+  );
