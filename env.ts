@@ -8,6 +8,8 @@ const serverSchema = z.object({
   CLOUDFLARE_CLIENT_ID: z.string().min(1),
   CLOUDFLARE_CLIENT_SECRET: z.string().min(1),
   CLOUDFLARE_OAUTH_SCOPES: z.string().min(1),
+  CLOUDFLARE_OAUTH_DISCOVERY_URL: z.url(),
+  CLOUDFLARE_API_BASE: z.url(),
 });
 
 const clientSchema = z.object({
