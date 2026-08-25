@@ -1,5 +1,11 @@
 export const CLOUDFLARE_OAUTH_PROVIDER_ID = "cloudflare" as const;
 
+export const CLOUDFLARE_OAUTH_DISCOVERY_URL =
+  "https://dash.cloudflare.com/.well-known/openid-configuration" as const;
+
+export const CLOUDFLARE_API_BASE =
+  "https://api.cloudflare.com/client/v4" as const;
+
 export const R2_FREE_ALLOWANCE = {
   storageBytes: 10 * 1024 ** 3,
   writesAndLists: 1_000_000,

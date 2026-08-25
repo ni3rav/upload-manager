@@ -225,8 +225,8 @@ async function main() {
     });
     const url = oauth.json?.url ?? oauth.json?.data?.url;
     assert(
-      "oauth start returns authorize url on oidc sim",
-      typeof url === "string" && url.includes("127.0.0.1:8788/oauth2/auth"),
+      "oauth start returns authorize url",
+      typeof url === "string" && /oauth2\/auth|authorize/.test(url),
       JSON.stringify(oauth.json),
     );
   }

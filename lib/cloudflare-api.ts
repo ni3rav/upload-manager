@@ -1,4 +1,4 @@
-import { env } from "@/env";
+import { CLOUDFLARE_API_BASE } from "@/lib/constants";
 import { tryCatch } from "@/lib/try-catch";
 
 type CloudflareApiResponse<T> = {
@@ -29,7 +29,7 @@ async function cloudflareRequest<T>(
   init?: RequestInit,
 ) {
   const { data: response, error } = await tryCatch(
-    fetch(`${env.CLOUDFLARE_API_BASE}${path}`, {
+    fetch(`${CLOUDFLARE_API_BASE}${path}`, {
       ...init,
       headers: {
         Authorization: `Bearer ${accessToken}`,

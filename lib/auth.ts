@@ -4,7 +4,10 @@ import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { clientEnv, env } from "@/env";
-import { CLOUDFLARE_OAUTH_PROVIDER_ID } from "@/lib/constants";
+import {
+  CLOUDFLARE_OAUTH_PROVIDER_ID,
+  CLOUDFLARE_OAUTH_DISCOVERY_URL,
+} from "@/lib/constants";
 
 const cloudflareScopes =
   env.CLOUDFLARE_OAUTH_SCOPES.split(/\s+/).filter(Boolean);
@@ -36,7 +39,7 @@ export const auth = betterAuth({
       config: [
         {
           providerId: CLOUDFLARE_OAUTH_PROVIDER_ID,
-          discoveryUrl: env.CLOUDFLARE_OAUTH_DISCOVERY_URL,
+          discoveryUrl: CLOUDFLARE_OAUTH_DISCOVERY_URL,
           clientId: env.CLOUDFLARE_CLIENT_ID,
           clientSecret: env.CLOUDFLARE_CLIENT_SECRET,
           scopes: cloudflareScopes,
