@@ -1,5 +1,5 @@
 import { tryCatch } from "@/lib/try-catch";
-import { env } from "@/env";
+import { CLOUDFLARE_API_BASE } from "@/lib/constants";
 
 export function buildPublicUrl(publicBaseUrl: string, key: string): string {
   const base = publicBaseUrl.replace(/\/$/, "");
@@ -21,7 +21,7 @@ function encodeObjectKeyForApi(key: string): string {
 }
 
 function objectUrl(accountId: string, bucketName: string, key: string): string {
-  return `${env.CLOUDFLARE_API_BASE}/accounts/${accountId}/r2/buckets/${encodeURIComponent(bucketName)}/objects/${encodeObjectKeyForApi(key)}`;
+  return `${CLOUDFLARE_API_BASE}/accounts/${accountId}/r2/buckets/${encodeURIComponent(bucketName)}/objects/${encodeObjectKeyForApi(key)}`;
 }
 
 export async function objectExists({
@@ -36,7 +36,7 @@ export async function objectExists({
   accessToken: string;
 }): Promise<{ exists: boolean; error: string | null }> {
   const listUrl = new URL(
-    `${env.CLOUDFLARE_API_BASE}/accounts/${accountId}/r2/buckets/${encodeURIComponent(bucketName)}/objects`,
+    `${CLOUDFLARE_API_BASE}/accounts/${accountId}/r2/buckets/${encodeURIComponent(bucketName)}/objects`,
   );
   listUrl.searchParams.set("prefix", key);
   listUrl.searchParams.set("per_page", "20");
